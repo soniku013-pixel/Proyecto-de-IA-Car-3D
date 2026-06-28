@@ -3,11 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Mundo 3D - GTA Style</title>
+    <title>Mundo 3D - Autopista Infinita</title>
     <style>
         body { margin: 0; overflow: hidden; background: #000; user-select: none; }
         
-        /* Contenedor de Controles Táctiles */
         #ui { 
             position: absolute; 
             bottom: 30px; 
@@ -17,10 +16,9 @@
             align-items: flex-end;
             padding: 0 30px; 
             box-sizing: border-box; 
-            pointer-events: none; /* Deja pasar clicks al juego si es necesario */
+            pointer-events: none; 
         }
 
-        /* Joystick Mejorado Visualmente */
         #joystick-container { 
             width: 120px; 
             height: 120px; 
@@ -42,7 +40,6 @@
             transition: transform 0.05s ease;
         }
 
-        /* Botones de Acción Derecho */
         #pedals {
             display: flex;
             flex-direction: column;
@@ -87,9 +84,8 @@
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
 
 <script>
-    // Configuración de la Escena
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0xaaccff); // Cielo más realista
+    scene.background = new THREE.Color(0xaaccff); 
     
     const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 1000);
     const renderer = new THREE.WebGLRenderer({antialias: true});
@@ -97,7 +93,6 @@
     renderer.shadowMap.enabled = true;
     document.body.appendChild(renderer.domElement);
 
-    // Iluminación Avanzada para realzar el modelo gris
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
     scene.add(ambientLight);
 
@@ -111,16 +106,13 @@
     canvasRoad.height = 512;
     const ctxRoad = canvasRoad.getContext('2d');
     
-    // Color de Asfalto
     ctxRoad.fillStyle = '#3c3c3c';
     ctxRoad.fillRect(0, 0, 512, 512);
     
-    // Líneas laterales amarillas
     ctxRoad.fillStyle = '#ffcc00';
     ctxRoad.fillRect(0, 0, 20, 512);
     ctxRoad.fillRect(492, 0, 20, 512);
     
-    // Línea discontinua central blanca
     ctxRoad.fillStyle = '#ffffff';
     for (let i = 0; i < 512; i += 80) {
         ctxRoad.fillRect(250, i + 20, 12, 40);
@@ -129,34 +121,29 @@
     const roadTexture = new THREE.CanvasTexture(canvasRoad);
     roadTexture.wrapS = THREE.RepeatWrapping;
     roadTexture.wrapT = THREE.RepeatWrapping;
-    roadTexture.repeat.set(1, 400); // Repetición a lo largo de la carretera
+    roadTexture.repeat.set(1, 15); 
 
-    // Crear la autopista (Larga tira infinita)
-    const roadGeo = new THREE.PlaneGeometry(35, 10000);
+    // Autopista de tamaño controlado (El truco será mover la textura)
+    const roadGeo = new THREE.PlaneGeometry(35, 300);
     const roadMat = new THREE.MeshLambertMaterial({map: roadTexture});
     const road = new THREE.Mesh(roadGeo, roadMat);
     road.rotation.x = -Math.PI / 2;
-    road.position.y = 0.01; // Ligeramente arriba del pasto para evitar parpadeo
+    road.position.set(0, 0.01, -100); 
     scene.add(road);
 
-    // Pasto de fondo a los lados
-    const grassGeo = new THREE.PlaneGeometry(2000, 10000);
-    const grassMat = new THREE.MeshLambertMaterial({color: 0x2e7d32});
-    const grass = new THREE.Mesh(grassGeo, grassMat);
-    grass.rotation.x = -Math.PI / 2;
-    grass.position.y = 0;
-    scene.add(grass);
-
-    // Contenedor del coche físico
+    // Contenedor principal del coche
     const carGroup = new THREE.Group();
     scene.add(carGroup);
 
-    // Respaldo visual (Cubo verde) por si tarda el .glb
+    // Contenedor interno para compensar el desvío del modelo .glb
+    const carModelOffset = new THREE.Group();
+    carGroup.add(carModelOffset);
+
     const placeholderBody = new THREE.Mesh(new THREE.BoxGeometry(2, 1, 4), new THREE.MeshLambertMaterial({color: 0x00ff00}));
     placeholderBody.position.y = 0.5;
-    carGroup.add(placeholderBody);
+    carModelOffset.add(placeholderBody);
 
-    // Letra "Z" flotante mejorada
+    // Letra "Z" flotante centrada perfectamente arriba del grupo
     const canvasZ = document.createElement('canvas');
     canvasZ.width = 128; canvasZ.height = 128;
     const ctxZ = canvasZ.getContext('2d');
@@ -164,51 +151,47 @@
     ctxZ.fillStyle = '#cc0000'; ctxZ.font = 'bold 90px Arial'; ctxZ.textAlign = "center"; ctxZ.fillText('Z', 64, 95);
     const zTexture = new THREE.CanvasTexture(canvasZ);
     const zSign = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 1.5), new THREE.MeshBasicMaterial({map: zTexture, side: THREE.DoubleSide}));
-    zSign.position.y = 3.0;
+    zSign.position.set(0, 3.5, 0); 
     carGroup.add(zSign);
 
-    // --- CARGAR TU AUTO.GLB DESDE LA RAÍZ ---
+    // --- CARGAR TU AUTO.GLB ---
     const loader = new THREE.GLTFLoader();
     loader.load('auto.glb', function(gltf) {
         const importedCar = gltf.scene;
-        carGroup.remove(placeholderBody); // Quitamos el cubo
+        carModelOffset.remove(placeholderBody); 
         
-        importedCar.scale.set(1, 1, 1); 
-        importedCar.position.set(1.2, 0, 0); // Tu ajuste de centrado perfecto
+        importedCar.scale.set(1, 1, 1);
         
-        carGroup.add(importedCar);
-        console.log("¡Auto cargado correctamente!");
-    }, undefined, function(e) {
-        console.error("Error al cargar el .glb, se mantiene el cubo de respaldo.", e);
+        // CORRECCIÓN DE POSICIÓN: Desplazamos el modelo interno hacia la derecha
+        // para que sus ruedas queden alineadas con el centro físico del juego
+        importedCar.position.set(2.4, 0, 0); 
+        
+        carModelOffset.add(importedCar);
+        console.log("¡Auto cargado y centrado!");
     });
 
-    // --- SISTEMA DE FÍSICAS ESTILO GTA (INERCIA Y DERRAPE) ---
+    // Físicas estilo GTA adaptadas para la autopista infinita
     let speed = 0;
-    let angle = 0;
     let steer = 0;
-    
-    // Vectores para calcular el derrape/deslizamiento
-    const velocity = new THREE.Vector3();
-    const driftFactor = 0.88; // Menor número = más derrape estilo GTA en las curvas
+    let carX = 0; // Posición lateral del auto en la carretera
 
     const config = {
-        maxSpeed: 1.8,
-        reverseMaxSpeed: -0.6,
-        accel: 0.04,
-        brake: 0.06,
-        friction: 0.96,
-        steerSpeed: 0.04
+        maxSpeed: 0.15,
+        reverseMaxSpeed: -0.05,
+        accel: 0.003,
+        brake: 0.005,
+        friction: 0.95,
+        steerSpeed: 1.5
     };
 
     let inputGas = false;
     let inputBrake = false;
 
-    // --- LOGICA MEJORADA DEL JOYSTICK TÁCTIL ---
+    // Lógica del Joystick Táctil
     const joystickContainer = document.getElementById('joystick-container');
     const joystickKnob = document.getElementById('joystick-knob');
     let joystickLeft = 0;
 
-    // Obtener el centro del joystick para cálculos matemáticos precisos
     window.addEventListener('resize', () => {
         const rect = joystickContainer.getBoundingClientRect();
         joystickLeft = rect.left + rect.width / 2;
@@ -218,13 +201,9 @@
     joystickContainer.addEventListener('touchmove', (e) => {
         const touchX = e.touches[0].clientX;
         let deltaX = touchX - joystickLeft;
-        
-        // Limitar el movimiento visual de la perilla a un rango de 40px
         deltaX = Math.max(-40, Math.min(40, deltaX));
         joystickKnob.style.transform = `translateX(${deltaX}px)`;
-        
-        // Convertir a valor de dirección (-1 Izquierda, 1 Derecha)
-        steer = deltaX / 40;
+        steer = deltaX / 40; 
     });
 
     joystickContainer.addEventListener('touchend', () => {
@@ -232,62 +211,57 @@
         steer = 0;
     });
 
-    // Eventos de los Pedales
     document.getElementById('accel').addEventListener('touchstart', () => inputGas = true);
     document.getElementById('accel').addEventListener('touchend', () => inputGas = false);
     document.getElementById('brake').addEventListener('touchstart', () => inputBrake = true);
     document.getElementById('brake').addEventListener('touchend', () => inputBrake = false);
 
-    // Bucle de Animación y Físicas
+    // Ajuste estático de la cámara fija detrás del coche
+    camera.position.set(0, 4.5, 9);
+    camera.lookAt(0, 1.5, -5);
+
     function animate() {
         requestAnimationFrame(animate);
 
-        // 1. Manejo de Aceleración / Freno / Reversa
+        // Aceleración y freno
         if (inputGas) {
             speed += config.accel;
         } else if (inputBrake) {
-            speed -= config.brake; // Frena o va en reversa
+            speed -= config.brake;
         } else {
-            speed *= config.friction; // Fricción natural del suelo
+            speed *= config.friction;
         }
-
-        // Límites de velocidad
         speed = THREE.MathUtils.clamp(speed, config.reverseMaxSpeed, config.maxSpeed);
 
-        // 2. Giro dinámico (Gira más si vas a velocidad media, menos si estás quieto)
-        if (Math.abs(speed) > 0.05) {
-            const turnInvert = speed > 0 ? 1 : -1;
-            angle -= steer * config.steerSpeed * turnInvert * (Math.abs(speed) / config.maxSpeed + 0.3);
+        // Mover el coche de lado a lado en la carretera e inclinarlo al girar (Efecto GTA)
+        if (Math.abs(speed) > 0.005) {
+            carX += steer * config.steerSpeed * speed;
+            // Limitar los bordes para no salirnos del asfalto
+            carX = THREE.MathUtils.clamp(carX, -15, 15);
+            
+            // Rotación fluida en el eje Y al girar
+            carGroup.rotation.y = -steer * 0.25 * (speed / config.maxSpeed);
+            // Pequeña inclinación (Roll) realista en el eje Z
+            carGroup.rotation.z = steer * 0.05;
+        } else {
+            carGroup.rotation.y *= 0.9;
+            carGroup.rotation.z *= 0.9;
         }
 
-        // 3. Simulación de Inercia de giro (Efecto Drift de GTA)
-        // Calculamos la dirección hacia donde apunta la trompa del auto
-        const forwardX = Math.sin(angle) * speed;
-        const forwardZ = Math.cos(angle) * speed;
+        // Aplicamos la posición lateral calculada
+        carGroup.position.x = carX;
 
-        // Suavizamos el movimiento real del coche hacia la dirección deseada (Inercia)
-        velocity.x = THREE.MathUtils.lerp(velocity.x, forwardX, driftFactor);
-        velocity.z = THREE.MathUtils.lerp(velocity.z, forwardZ, driftFactor);
+        // EL TRUCO DEL INFINITO: Desplazamos las coordenadas Y de la textura según la velocidad
+        // Esto hace que parezca que avanzas a toda velocidad, ¡pero el suelo nunca se termina!
+        roadTexture.offset.y += speed * 2;
 
-        // Aplicamos el movimiento al coche
-        carGroup.position.x += velocity.x;
-        carGroup.position.z += velocity.z;
-        carGroup.rotation.y = angle;
-
-        // Mantener la "Z" girando para mirar siempre a la cámara
+        // Mantener la "Z" siempre mirando al frente de la pantalla
         zSign.rotation.y = -carGroup.rotation.y;
-
-        // 4. Cámara en 3ra Persona estilo GTA (Fluida y con amortiguación trasera)
-        const targetCamX = carGroup.position.x - Math.sin(angle) * 14;
-        const targetCamZ = carGroup.position.z - Math.cos(angle) * 14;
-        const targetCamY = carGroup.position.y + 5.5;
-
-        camera.position.lerp(new THREE.Vector3(targetCamX, targetCamY, targetCamZ), 0.08); // Cámara suave
-        camera.lookAt(new THREE.Vector3(carGroup.position.x, carGroup.position.y + 1, carGroup.position.z));
 
         renderer.render(scene, camera);
     }
     animate();
 </script>
 </body>
-</html>
+    </html>
+    
