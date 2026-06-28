@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Mundo 3D con Modelo GLB</title>
+    <style>
+        body { margin: 0; overflow: hidden; background: #000; }
+        #ui { position: absolute; bottom: 20px; width: 100%; display: flex; justify-content: space-between; padding: 0 20px; box-sizing: border-box; user-select: none; }
+        #joystick { width: 120px; height: 120px; background: rgba(255,255,255,0.2); border-radius: 50%; border: 2px solid white; touch-action: none; }
+        #accel { width: 100px; height: 100px; background: rgba(255,0,0,0.5); border-radius: 50%; border: 2px solid white; color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div id="ui">
+    <div id="joystick"></div>
+    <div id="accel">GAS</div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+
+<script>
+    // Configuración básica de la escena 3D
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x87CEEB); // Cielo azul
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer({antialias: true});
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+
+    // Iluminación para que el modelo 3D tenga volumen y color real
+    const light = new THREE.DirectionalLight(0xffffff, 1.5);
+    light.position.set(5, 20, 5);
+    scene.add(light);
+    scene.add(new THREE.AmbientLight(0x666666));
+
+    // Suelo infinito (Plano verde)
+    const ground = new THREE.Mesh(new THREE.PlaneGeometry(2000, 2000), new THREE.MeshLambertMaterial({color: 0x228B22}));
+    ground.rotation.x = -Math.PI / 2;
+    scene.add(ground);
+
+    // Creamos el contenedor del coche
+    const carGroup = new THREE.Group();
+    scene.add(carGroup);
+
+    // Respaldo visual: Un cubo verde temporal mientras carga el modelo real
+    const placeholderBody = new THREE.Mesh(new THREE.BoxGeometry(2, 1, 4), new THREE.MeshLambertMaterial({color: 0x00ff00}));
+    carGroup.add(placeholderBody);
+
+    // Letra "Z" flotante sobre el coche
+    const canvasZ = document.createElement('canvas');
+    canvasZ.width = 64; canvasZ.height = 64;
+    const ctxZ = canvasZ.getContext('2d');
+    ctxZ.fillStyle = 'white'; ctxZ.fillRect(0,0,64,64);
+    ctxZ.fillStyle = 'red'; ctxZ.font = '50px Arial'; ctxZ.fillText('Z', 15, 50);
+    const zTexture = new THREE.CanvasTexture(canvasZ);
+    const zSign = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({map: zTexture, side: THREE.DoubleSide}));
+    zSign.position.y = 2.5; // Un poco más alto para que libre el modelo real
+    carGroup.add(zSign);
+
+    // --- IMPORTADOR DEL MODELO .GLB ---
+    const loader = new THREE.GLTFLoader();
+    
+    // Busca en la carpeta coche el archivo auto.glb
+    loader.load('coche/auto.glb', function(gltf) {
+        const importedCar = gltf.scene;
+        
+        // Removemos el cubo verde de respaldo ya que el modelo real cargó con éxito
+        carGroup.remove(placeholderBody);
+        
+        // Ajuste de escala (Cámbialo si tu modelo aparece gigante o microscópico)
+        importedCar.scale.set(1, 1, 1); 
+        
+        // Centrar el modelo en el grupo
+        importedCar.position.set(0, 0, 0);
+        
+        // Añadir el modelo 3D importado al grupo principal de físicas
+        carGroup.add(importedCar);
+        console.log("¡Modelo auto.glb importado con éxito!");
+        
+    }, undefined, function(error) {
+        console.error("No se pudo cargar el modelo 3D de la carpeta coche. Verifica las rutas o la seguridad del navegador.", error);
+    });
+
+    // Variables de control y físicas
+    let speed = 0, angle = 0, steer = 0;
+    let accelerating = false;
+
+    // Captura de controles táctiles en el móvil
+    document.getElementById('joystick').addEventListener('touchmove', (e) => {
+        steer = (e.touches[0].clientX - 60) / 60; // Izquierda / Derecha
+    });
+    document.getElementById('joystick').addEventListener('touchend', () => steer = 0);
+    
+    document.getElementById('accel').addEventListener('touchstart', () => accelerating = true);
+    document.getElementById('accel').addEventListener('touchend', () => accelerating = false);
+
+    // Bucle de renderizado y físicas del coche
+    function animate() {
+        requestAnimationFrame(animate);
+        
+        // Físicas sencillas (Aceleración, frenado automático por fricción)
+        if(accelerating) speed += 0.06;
+        speed *= 0.97; // Fricción del suelo
+        
+        // Solo gira si el coche está en movimiento
+        if (Math.abs(speed) > 0.01) {
+            angle += steer * 0.04;
+        }
+        
+        // Mover el coche según su ángulo actual
+        carGroup.position.x += Math.sin(angle) * speed;
+        carGroup.position.z += Math.cos(angle) * speed;
+        carGroup.rotation.y = angle;
+
+        // Mantener la "Z" siempre mirando hacia la cámara de forma fija
+        zSign.rotation.y = -carGroup.rotation.y;
+
+        // Cámara en 3ra Persona suave (Persigue al auto desde atrás)
+        const targetCamX = carGroup.position.x - Math.sin(angle) * 12;
+        const targetCamZ = carGroup.position.z - Math.cos(angle) * 12;
+        const targetCamY = carGroup.position.y + 4.5;
+
+        camera.position.lerp(new THREE.Vector3(targetCamX, targetCamY, targetCamZ), 0.1);
+        camera.lookAt(new THREE.Vector3(carGroup.position.x, carGroup.position.y + 1, carGroup.position.z));
+
+        renderer.render(scene, camera);
+    }
+    animate();
+</script>
+</body>
+</html>
