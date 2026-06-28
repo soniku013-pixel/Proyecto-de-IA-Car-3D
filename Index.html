@@ -64,7 +64,7 @@
     const loader = new THREE.GLTFLoader();
     
     // Busca en la carpeta coche el archivo auto.glb
-    loader.load('coche/auto.glb', function(gltf) {
+    loader.load('auto.glb', function(gltf) {
         const importedCar = gltf.scene;
         
         // Removemos el cubo verde de respaldo ya que el modelo real cargó con éxito
